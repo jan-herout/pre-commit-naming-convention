@@ -82,12 +82,12 @@ All file and directory names must:
 
 - Be lowercase (`a-z`)
 - Contain only alphanumeric characters and safe special characters
-- Safe special characters allowed:
-  - Files: `-` (hyphen), `_` (underscore), `.` (dot)
-  - Directories: `-` (hyphen), `_` (underscore)
+- Safe special characters allowed (in both files and directories):
+  - `-` (hyphen)
+  - `_` (underscore)
+  - `.` (dot)
 - Not contain whitespace
 - Not contain diacritic characters (e.g., `á`, `é`, `ü`, `ñ`)
-- Directories cannot contain dots
 
 ### Examples
 
@@ -95,11 +95,12 @@ All file and directory names must:
 |------|--------|--------|
 | `src/utils/helper.py` | ✅ Valid | - |
 | `my-file.txt` | ✅ Valid | - |
+| `.config/` | ✅ Valid | Hidden directories allowed |
+| `v1.0.0/` | ✅ Valid | Version numbers allowed |
 | `MyFile.py` | ❌ Invalid | Uppercase letters |
 | `my file.txt` | ❌ Invalid | Whitespace |
 | `café.txt` | ❌ Invalid | Diacritic character |
 | `file@name.txt` | ❌ Invalid | Invalid character `@` |
-| `src/.config/` | ❌ Invalid | Dot in directory name |
 
 ## Configuration
 

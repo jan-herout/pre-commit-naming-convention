@@ -217,32 +217,29 @@ class TestInvalidCharacterViolations:
         assert any(v.type == ViolationType.INVALID_CHAR for v in result.violations)
 
 
-class TestDotInDirectoryViolations:
-    """Tests for dot in directory name detection."""
+class TestDotInDirectoryAllowed:
+    """Tests that dots are now allowed in directory names."""
 
     def test_directory_with_dot(self) -> None:
-        """Test directory with dot in name."""
+        """Test directory with dot in name is now allowed."""
         validator = NamingConventionValidator()
         result = validator.validate(".config/file.py")
 
-        assert result.is_valid is False
-        assert any(v.type == ViolationType.DOT_IN_DIR for v in result.violations)
+        assert result.is_valid is True
 
     def test_hidden_directory(self) -> None:
-        """Test hidden directory (starts with dot)."""
+        """Test hidden directory (starts with dot) is now allowed."""
         validator = NamingConventionValidator()
         result = validator.validate("src/.hidden/file.py")
 
-        assert result.is_valid is False
-        assert any(v.type == ViolationType.DOT_IN_DIR for v in result.violations)
+        assert result.is_valid is True
 
     def test_directory_with_version(self) -> None:
-        """Test directory with version number (e.g., v1.0)."""
+        """Test directory with version number (e.g., v1.0) is now allowed."""
         validator = NamingConventionValidator()
         result = validator.validate("src/v1.0/module.py")
 
-        assert result.is_valid is False
-        assert any(v.type == ViolationType.DOT_IN_DIR for v in result.violations)
+        assert result.is_valid is True
 
 
 class TestMultipleViolations:

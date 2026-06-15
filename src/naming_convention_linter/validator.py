@@ -22,7 +22,6 @@ class ViolationType(Enum):
     INVALID_CHAR = auto()
     WHITESPACE = auto()
     DIACRITIC = auto()
-    DOT_IN_DIR = auto()
 
 
 @dataclass(frozen=True)
@@ -70,18 +69,17 @@ class NamingConventionValidator:
     Validates that names conform to:
     - Lowercase letters only (a-z)
     - Digits (0-9)
-    - Safe special characters: -, _, . (files only)
+    - Safe special characters: -, _, . (allowed in both files and directories)
     - No whitespace
     - No diacritic characters
-    - No dots in directory names
 
     Attributes:
         exceptions: Set of paths that are exempt from validation.
     """
 
     # Regex patterns for validation
-    SAFE_CHARS_FILE = re.compile(r"^[a-z0-9_.-]+$")
-    SAFE_CHARS_DIR = re.compile(r"^[a-z0-9_-]+$")
+    # Both files and directories can contain dots
+    SAFE_CHARS = re.compile(r"^[a-z0-9_.-]+$")
     WHITESPACE_PATTERN = re.compile(r"\s")
     DIACRITIC_PATTERN = re.compile(r"[\u0300-\u036f\u00c0-\u00ff\u0100-\u017f]")
     UPPERCASE_PATTERN = re.compile(r"[A-Z]")
@@ -136,7 +134,7 @@ class NamingConventionValidator:
         """
         if self.UPPERCASE_PATTERN.search(name):
             msg = (
-                f'{component_type.capitalize()} contains uppercase letters: '
+                f"{component_type.capitalize()} contains uppercase letters: "
                 f'"{name}" should be "{name.lower()}"'
             )
             return Violation(
@@ -159,7 +157,7 @@ class NamingConventionValidator:
         if self.WHITESPACE_PATTERN.search(name):
             suggestion = self.WHITESPACE_PATTERN.sub("_", name)
             msg = (
-                f'{component_type.capitalize()} contains whitespace: '
+                f"{component_type.capitalize()} contains whitespace: "
                 f'"{name}" should be "{suggestion}"'
             )
             return Violation(
@@ -187,7 +185,7 @@ class NamingConventionValidator:
                 c for c in unicodedata.normalize("NFKD", name) if not unicodedata.combining(c)
             )
             msg = (
-                f'{component_type.capitalize()} contains diacritic character: '
+                f"{component_type.capitalize()} contains diacritic character: "
                 f'"{name}" should be "{suggestion}"'
             )
             return Violation(
@@ -210,43 +208,14 @@ class NamingConventionValidator:
         Returns:
             Violation if invalid characters found, None otherwise.
         """
-        pattern = self.SAFE_CHARS_FILE if is_file else self.SAFE_CHARS_DIR
-
-        if not pattern.match(name):
-            if is_file:
-                msg = (
-                    f'{component_type.capitalize()} contains invalid characters: '
-                    f'"{name}" (only a-z, 0-9, -, _, . allowed)'
-                )
-                return Violation(
-                    type=ViolationType.INVALID_CHAR,
-                    message=msg,
-                    component=name,
-                )
+        if not self.SAFE_CHARS.match(name):
             msg = (
-                f'{component_type.capitalize()} contains invalid characters: '
-                f'"{name}" (only a-z, 0-9, -, _ allowed)'
+                f"{component_type.capitalize()} contains invalid characters: "
+                f'"{name}" (only a-z, 0-9, -, _, . allowed)'
             )
             return Violation(
                 type=ViolationType.INVALID_CHAR,
                 message=msg,
-                component=name,
-            )
-        return None
-
-    def _check_dot_in_dir(self, name: str) -> Violation | None:
-        """Check if directory name contains dots.
-
-        Args:
-            name: The directory name to check.
-
-        Returns:
-            Violation if dot found in directory name, None otherwise.
-        """
-        if "." in name:
-            return Violation(
-                type=ViolationType.DOT_IN_DIR,
-                message=f'Directory contains dot: "{name}" (dots not allowed in directory names)',
                 component=name,
             )
         return None
@@ -282,10 +251,6 @@ class NamingConventionValidator:
 
         # Check invalid characters
         if violation := self._check_invalid_chars(name, component_type, is_file):
-            violations.append(violation)
-
-        # Check dot in directory
-        if not is_file and (violation := self._check_dot_in_dir(name)):
             violations.append(violation)
 
         return violations
@@ -324,9 +289,7 @@ class NamingConventionValidator:
                 continue
 
             # Build current path
-            current_path = (
-                f"{current_path}/{component}" if current_path else component
-            )
+            current_path = f"{current_path}/{component}" if current_path else component
 
             # Check if this specific path component is an exception
             # If so, skip validation for this component but continue checking children

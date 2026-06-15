@@ -505,8 +505,8 @@ Naming Convention Violations Found:
   src/data/café.txt
     ✗ File contains diacritic character: "café.txt" should be "cafe.txt"
 
-  src/config/.env.local
-    ✗ Directory starts with dot: ".env.local" (hidden directories not allowed)
+  src/utils/my file.txt
+    ✗ File contains whitespace: "my file.txt" should be "my_file.txt"
 ```
 
 **Exit Codes**:
@@ -560,11 +560,12 @@ Naming Convention Violations Found:
 |-----------|-------|----------|
 | Valid file | `src/utils/helper.py` | Pass |
 | Valid dir | `src/my-module/` | Pass |
+| Valid dir with dot | `src/.config/` | Pass - dots allowed in dirs |
+| Valid dir version | `src/v1.0.0/` | Pass - dots allowed in dirs |
 | Uppercase | `src/MyFile.txt` | Fail - uppercase |
 | Whitespace | `src/my file.txt` | Fail - whitespace |
 | Diacritic | `src/café.txt` | Fail - diacritic |
 | Invalid char | `src/file@name.txt` | Fail - invalid char |
-| Dot in dir | `src/.config/` | Fail - dot in dir |
 | Exception match | `legacy/` in exceptions | Pass for `legacy/` only |
 | Exception child | `legacy/data.txt` | Fail (child not exempt) |
 | Multiple violations | `My File@.txt` | Fail - multiple errors |
