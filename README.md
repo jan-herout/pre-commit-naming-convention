@@ -21,13 +21,33 @@ A pre-commit hook that validates file and directory naming conventions in Git re
 
 Add to your `.pre-commit-config.yaml`:
 
+#### Option 1: Using the latest commit on main branch (for development)
+
 ```yaml
 repos:
-  - repo: https://github.com/your-org/pre-commit-naming-convention
-    rev: v1.0.0
+  - repo: https://github.com/jan-herout/pre-commit-naming-convention
+    rev: main  # or use specific commit SHA for reproducibility
     hooks:
       - id: naming-convention-linter
 ```
+
+#### Option 2: Using a specific commit SHA (recommended for reproducibility)
+
+First, get the latest commit SHA:
+```bash
+git ls-remote https://github.com/jan-herout/pre-commit-naming-convention.git HEAD
+```
+
+Then use it in your config:
+```yaml
+repos:
+  - repo: https://github.com/jan-herout/pre-commit-naming-convention
+    rev: <commit-sha>  # e.g., 'abc1234'
+    hooks:
+      - id: naming-convention-linter
+```
+
+**Note**: The `rev` field must be a valid git reference (branch name, tag, or commit SHA). Since this repository doesn't have version tags yet, use `main` or a specific commit SHA.
 
 ### Standalone Installation
 
@@ -126,7 +146,7 @@ exceptions:
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/pre-commit-naming-convention
+git clone https://github.com/jan-herout/pre-commit-naming-convention
 cd pre-commit-naming-convention
 
 # Create virtual environment
