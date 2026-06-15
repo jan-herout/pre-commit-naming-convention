@@ -1,0 +1,4 @@
+exceptions:
+  - README.md
+  - LICENSE
+  - doc/specs/IMPLEMENTATION_PLAN.md
