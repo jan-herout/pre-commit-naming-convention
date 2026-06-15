@@ -1,6 +1,6 @@
 [project]
 name = "pre-commit-naming-convention"
-version = "1.0.0"
+version = "1.0.1"
 description = "Pre-commit hook for validating file and directory naming conventions"
 readme = "README.md"
 license = {text = "MIT"}

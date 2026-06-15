@@ -109,8 +109,16 @@ class TestMainExitCodes:
             capture_output=True,
         )
 
-        exit_code = main(["--all"])
-        assert exit_code == EXIT_SUCCESS
+        # Change to temp directory so we validate files there, not in the actual repo
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            exit_code = main(["--all"])
+            assert exit_code == EXIT_SUCCESS
+        finally:
+            os.chdir(original_cwd)
 
     def test_exit_violations_with_bad_file(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
@@ -249,8 +257,16 @@ class TestMainWithAllFlag:
             ["git", "commit", "-m", "initial"], cwd=tmp_path, check=True, capture_output=True
         )
 
-        exit_code = main(["--all"])
-        assert exit_code == EXIT_SUCCESS
+        # Change to temp directory so we validate files there
+        import os
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            exit_code = main(["--all"])
+            assert exit_code == EXIT_SUCCESS
+        finally:
+            os.chdir(original_cwd)
 
     def test_finds_violations_in_all_files(self, tmp_path: Path) -> None:
         """Test finds violations when scanning all files."""
