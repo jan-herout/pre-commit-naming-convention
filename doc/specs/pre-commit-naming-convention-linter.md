@@ -30,10 +30,9 @@ A pre-commit hook that validates file and directory naming conventions in a Git 
 |------|-------------|------------|
 | **R1** | All names must be lowercase | Files & Directories |
 | **R2** | Only alphanumeric characters (a-z, 0-9) allowed | Files & Directories |
-| **R3** | Safe special characters permitted: `-` (hyphen), `_` (underscore), `.` (dot for files only) | Files & Directories |
+| **R3** | Safe special characters permitted: `-` (hyphen), `_` (underscore), `.` (dot) | Files & Directories |
 | **R4** | No whitespace characters (space, tab, newline) | Files & Directories |
 | **R5** | No extended/diacritic characters (e.g., č, š, ž, ä, ö, ü, ñ) | Files & Directories |
-| **R6** | Dot (`.`) only allowed in file names, not directory names | Directories |
 
 #### Exception Handling
 
@@ -54,6 +53,16 @@ A pre-commit hook that validates file and directory naming conventions in a Git 
 | **I3** | Exit code 0 on success, non-zero on failure |
 | **I4** | Provide clear error messages indicating which files violate conventions |
 | **I5** | Must handle staged files only (files passed by pre-commit) |
+
+#### Validation Scope Requirements
+
+| Rule | Description |
+|------|-------------|
+| **V1** | By default, validate only added/modified files (Git staged files) |
+| **V2** | Support `--all` or `-a` flag to validate entire repository |
+| **V3** | When `--all` is used, traverse all files and directories from repository root |
+| **V4** | Respect `.gitignore` when scanning full repository (skip ignored files) |
+| **V5** | Always exclude `.git/` directory from validation |
 
 ### 2.2 Non-Functional Requirements
 
@@ -83,11 +92,13 @@ pre-commit-naming-convention/
 │       ├── cli.py                  # Command-line interface
 │       ├── validator.py            # Core validation logic
 │       ├── config.py               # Configuration loading and parsing
+│       ├── git_utils.py            # Git operations (staged files, repo scanning)
 │       └── exceptions.py           # Custom exception classes
 ├── tests/
 │   ├── __init__.py
 │   ├── test_validator.py           # Unit tests for validator
 │   ├── test_config.py              # Unit tests for config loading
+│   ├── test_git_utils.py           # Unit tests for Git utilities
 │   └── test_cli.py                 # Integration tests for CLI
 └── doc/
     └── specs/
@@ -116,9 +127,37 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 ```
 
 **Arguments**:
-- `files`: Positional arguments - list of file paths to validate (from pre-commit)
+- `files`: Positional arguments - list of file paths to validate (from pre-commit). If not provided and `--all` is not set, uses Git staged files
 - `--config`: Path to exceptions config file (default: `.naming-convention-exceptions`)
-- `--verbose`: Enable verbose output
+- `--all, -a`: Validate entire repository instead of just staged/modified files
+- `--verbose, -v`: Enable verbose output
+
+**Behavior Matrix**:
+
+| Scenario | Files Provided | `--all` Flag | Action |
+|----------|----------------|--------------|--------|
+| Pre-commit hook | Yes | No | Validate provided staged files |
+| Manual (default) | No | No | Get staged files from Git and validate |
+| Manual (full repo) | No | Yes | Scan entire repository and validate all files |
+| Manual (override) | Yes | Yes | Ignore files, validate entire repository |
+
+**Git Integration**:
+
+```python
+def get_staged_files() -> list[str]:
+    """Get list of staged files from Git."""
+    # Uses: git diff --cached --name-only --diff-filter=ACM
+    # Returns: List of file paths relative to repo root
+    ...
+
+def get_all_repo_files(repo_root: str) -> list[str]:
+    """Get all files in repository, excluding .git/ and respecting .gitignore."""
+    # Walk directory tree
+    # Skip .git/ directory
+    # Skip files matching .gitignore patterns
+    # Returns: List of all file paths
+    ...
+```
 
 #### 3.2.2 Validator Module (`validator.py`)
 
@@ -215,6 +254,93 @@ exceptions:
 - Each exception must be a string
 - Paths should be relative (no leading `/`)
 
+#### 3.2.4 Git Utilities Module (`git_utils.py`)
+
+**Responsibilities**:
+- Retrieve list of staged files from Git
+- Scan entire repository for all files
+- Respect `.gitignore` patterns
+- Find repository root
+
+**Interface**:
+```python
+class GitUtils:
+    @staticmethod
+    def get_staged_files(repo_root: str | None = None) -> list[str]:
+        """Get list of added/modified staged files from Git.
+        
+        Uses porcelain command:
+        git diff --cached --name-only --diff-filter=ACM
+        
+        Returns: List of file paths relative to repo root
+        """
+        ...
+    
+    @staticmethod
+    def get_all_repo_files(repo_root: str | None = None) -> list[str]:
+        """Get all tracked files in repository.
+        
+        Uses porcelain command:
+        git ls-files -z  # NUL-delimited for special chars
+        
+        - Excludes .git/ directory
+        - Respects .gitignore patterns
+        - Returns: List of file paths relative to repo root
+        """
+        ...
+    
+    @staticmethod
+    def find_repo_root(start_path: str = ".") -> str:
+        """Find Git repository root from given path.
+        
+        Uses stable plumbing command:
+        git rev-parse --show-toplevel
+        """
+        ...
+    
+    @staticmethod
+    def is_git_repo(path: str = ".") -> bool:
+        """Check if path is inside a Git repository.
+        
+        Uses stable plumbing command:
+        git rev-parse --git-dir
+        """
+        ...
+```
+
+**Git Command Details**:
+
+> **Note on Porcelain**: Use Git's porcelain commands and stable output formats for reliable parsing. Porcelain commands guarantee stable, machine-readable output that won't change between Git versions.
+
+```python
+# Get staged files (added, copied, modified)
+# --name-only: machine-readable list of paths
+# --diff-filter=ACM: Only Added, Copied, Modified (not Deleted, Renamed)
+git diff --cached --name-only --diff-filter=ACM
+
+# Get all tracked files (porcelain format)
+# -z: Use NUL character as delimiter (handles special characters in filenames)
+# This is porcelain format - stable output
+git ls-files -z
+
+# Alternative for untracked files (if needed):
+# --porcelain: Machine-readable format
+git status --porcelain
+
+# Find repo root (stable plumbing command)
+git rev-parse --show-toplevel
+
+# Check if git repo (stable plumbing command)
+git rev-parse --git-dir
+```
+
+**Porcelain Command Guidelines**:
+- Use `--porcelain` flag where available (e.g., `git status --porcelain`)
+- Use `-z` flag with NUL delimiters for filename lists to handle special characters
+- Use `-porcelain` or `-name-only` flags instead of parsing human-readable output
+- Prefer plumbing commands (`rev-parse`, `ls-files`) over porcelain when appropriate
+- Never parse human-formatted output that may change between Git versions
+
 ### 3.3 Validation Algorithm
 
 ```python
@@ -283,7 +409,42 @@ repos:
         args: ['--config', '.naming-convention-exceptions']
 ```
 
-### 4.2 Package Configuration
+### 4.2 Command-Line Usage
+
+**Validate staged files only (default)**:
+```bash
+# In a Git repository, validates only added/modified staged files
+naming-convention-linter
+
+# Same as above, explicit
+naming-convention-linter --config .naming-convention-exceptions
+```
+
+**Validate entire repository**:
+```bash
+# Scan and validate all files in the repository
+naming-convention-linter --all
+
+# Short form
+naming-convention-linter -a
+
+# With custom config
+naming-convention-linter -a --config .naming-convention-exceptions
+```
+
+**Validate specific files (pre-commit mode)**:
+```bash
+# Used by pre-commit framework - validates provided files
+naming-convention-linter src/utils/helper.py src/main.py
+```
+
+**Verbose output**:
+```bash
+naming-convention-linter -v
+naming-convention-linter --all --verbose
+```
+
+### 4.3 Package Configuration
 
 **pyproject.toml**:
 
@@ -376,11 +537,21 @@ Naming Convention Violations Found:
 - Test path normalization
 - Test exception lookup
 
+**test_git_utils.py**:
+- Test getting staged files from Git using porcelain commands
+- Test scanning entire repository with NUL-delimited output
+- Test handling filenames with special characters (spaces, quotes, etc.)
+- Test .gitignore respect
+- Test finding repo root
+- Test handling non-git directories
+- Test porcelain output parsing stability
+
 **test_cli.py**:
 - Test argument parsing
 - Test exit codes
 - Test output formatting
 - Test verbose mode
+- Test `--all` flag for full repo validation
 - Test integration with pre-commit style invocation
 
 ### 5.2 Test Cases
@@ -397,6 +568,10 @@ Naming Convention Violations Found:
 | Exception match | `legacy/` in exceptions | Pass for `legacy/` only |
 | Exception child | `legacy/data.txt` | Fail (child not exempt) |
 | Multiple violations | `My File@.txt` | Fail - multiple errors |
+| **Staged files** | Run without args in repo with staged `BadFile.txt` | Fail - validates staged files |
+| **Full repo scan** | Run with `--all` flag | Validates all files in repo |
+| **Gitignore respect** | File in `node_modules/` | Skipped in full repo scan |
+| **Non-git dir** | Run outside Git repo | Error - not a git repository |
 
 ---
 
@@ -406,7 +581,8 @@ Naming Convention Violations Found:
 1. Set up project structure with `pyproject.toml`
 2. Implement `validator.py` with validation logic
 3. Implement `config.py` for YAML config loading
-4. Implement `cli.py` with argument parsing
+4. Implement `git_utils.py` for Git operations
+5. Implement `cli.py` with argument parsing and scope selection
 
 ### Phase 2: Testing
 1. Write comprehensive unit tests
@@ -467,7 +643,9 @@ exceptions:
 
 ## 8. Success Criteria
 
-- [ ] Linter validates all staged files correctly
+- [ ] Linter validates staged files by default
+- [ ] Linter validates all repository files with `--all` flag
+- [ ] Respects `.gitignore` in full repository scan
 - [ ] Linter exits with code 0 on success, non-zero on failure
 - [ ] Exceptions file works as specified (non-inheritable)
 - [ ] Clear, actionable error messages
