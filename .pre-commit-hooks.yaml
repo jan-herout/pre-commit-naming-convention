@@ -1,0 +1,9 @@
+- id: naming-convention-linter
+  name: Naming Convention Linter
+  description: Validates file and directory naming conventions
+  entry: naming-convention-linter
+  language: python
+  files: ''
+  pass_filenames: true
+  require_serial: false
+  minimum_pre_commit_version: '2.9.0'
